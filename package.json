@@ -1,0 +1,34 @@
+{
+    "name": "check-barrel-import-violation",
+    "version": "0.0.1",
+    "description": "Ensure that files inside a folder with a barrel are not imported outside this folder",
+    "type": "module",
+    "bin": {
+        "check-barrel-import-violation": "dist/index.js"
+    },
+    "scripts": {
+        "build": "tsc",
+        "prepublishOnly": "npm run build",
+        "test": "node dist/index.js ../../OBI/core-web-app/tsconfig.json"
+    },
+    "files": [
+        "dist"
+    ],
+    "keywords": [
+        "barrel",
+        "import",
+        "lint",
+        "typescript"
+    ],
+    "license": "MIT",
+    "dependencies": {
+        "chalk": "^5.4.1",
+        "oxc-parser": "^0.72.1",
+        "picomatch": "^4.0.4"
+    },
+    "devDependencies": {
+        "@types/node": "^22.15.0",
+        "@types/picomatch": "^4.0.3",
+        "typescript": "^5.9.3"
+    }
+}
