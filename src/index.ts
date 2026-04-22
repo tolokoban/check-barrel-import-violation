@@ -33,6 +33,10 @@ if (!FS.existsSync(absoluteTsconfigPath)) {
 
 const tsconfig = JSON.parse(FS.readFileSync(absoluteTsconfigPath, "utf-8"));
 const rootDir = Path.dirname(absoluteTsconfigPath);
+const baseUrl = tsconfig.compilerOptions?.baseUrl
+	? Path.resolve(rootDir, tsconfig.compilerOptions.baseUrl)
+	: rootDir;
+const aliases = buildAliases(tsconfig.compilerOptions?.paths ?? {}, baseUrl);
 const include: string[] = tsconfig.include ?? ["**/*"];
 const exclude: string[] = tsconfig.exclude ?? ["node_modules"];
 
@@ -44,7 +48,7 @@ for (const filePath of sourceFiles) {
 	errorCount += checkFile(filePath);
 }
 
-print(sourceFiles.length, " files processed in", Date.now() - time0, "ms");
+print(sourceFiles.length, " files processed in ", Date.now() - time0, " ms");
 if (errorCount > 0) {
 	printFailure(errorCount, " barrel import violation(s) found.");
 	process.exit(1);
@@ -63,9 +67,12 @@ function checkFile(filePath: string): number {
 
 		const src = node.source;
 		const importPath = src.value as string;
-		if (!importPath.startsWith(".")) continue;
+		const aliasResolved = resolveAlias(importPath, aliases);
+		if (!aliasResolved) continue;
 
-		const resolved = Path.resolve(dir, importPath);
+		const resolved = Path.isAbsolute(aliasResolved)
+			? aliasResolved
+			: Path.resolve(dir, aliasResolved);
 		const segments = Path.relative(dir, resolved).split(Path.sep);
 
 		let current = dir;
@@ -89,6 +96,45 @@ function checkFile(filePath: string): number {
 		}
 	}
 	return count;
+}
+
+interface Alias {
+	prefix: string;
+	targets: string[];
+}
+
+function buildAliases(
+	paths: Record<string, string[]>,
+	base: string,
+): Alias[] {
+	return Object.entries(paths).map(([key, targets]) => ({
+		prefix: key.replace(/\*$/, ""),
+		targets: targets.map((t) => Path.resolve(base, t.replace(/\*$/, ""))),
+	}));
+}
+
+function resolveAlias(
+	importPath: string,
+	aliases: Alias[],
+): string | null {
+	if (importPath.startsWith(".")) return importPath;
+
+	for (const { prefix, targets } of aliases) {
+		if (importPath.startsWith(prefix)) {
+			const rest = importPath.slice(prefix.length);
+			for (const target of targets) {
+				const candidate = Path.join(target, rest);
+				if (
+					FS.existsSync(candidate) ||
+					FS.existsSync(candidate + ".ts") ||
+					FS.existsSync(candidate + ".tsx")
+				)
+					return candidate;
+			}
+			return Path.join(targets[0], rest);
+		}
+	}
+	return null;
 }
 
 function collectSourceFiles(
