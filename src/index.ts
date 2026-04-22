@@ -2,6 +2,7 @@
 
 import * as FS from "node:fs";
 import * as Path from "node:path";
+import Chalk from "chalk";
 import OXC from "oxc-parser";
 import picomatch from "picomatch";
 import {
@@ -50,12 +51,44 @@ const sourceFiles =
 print("Analysing ", sourceFiles.length, " files");
 let errorCount = 0;
 
+let lastViolation: {
+	current: null | {
+		importPath: string;
+		resolvedPath: string;
+		fixPath: string;
+	};
+} = { current: null };
+
 for (const filePath of sourceFiles) {
 	errorCount += checkFile(filePath);
 }
 
 print(sourceFiles.length, " files processed in ", Date.now() - time0, " ms");
 if (errorCount > 0) {
+	if (lastViolation.current) {
+		print();
+		print(
+			"The convention for private modules is that if a folder contains a barrel (index.ts or index.tsx file)",
+		);
+		print(
+			"then you should not import any file from this folder from outside of this folder.",
+		);
+		print();
+		print(
+			`Here, for instance, you tried to import "${Chalk.cyanBright.bold(lastViolation.current.importPath)}"`,
+		);
+		print(
+			`       which resolves to "${Chalk.cyanBright.bold(lastViolation.current.resolvedPath)}".`,
+		);
+		print(
+			`But there is a barrel in "${Chalk.cyanBright.bold(lastViolation.current.fixPath)}".`,
+		);
+		print();
+		print(
+			"If you really need to import this file, you should consider exporting it in the barrel.",
+		);
+		print();
+	}
 	printFailure(errorCount, " barrel import violation(s) found.");
 	process.exit(1);
 } else {
@@ -63,6 +96,7 @@ if (errorCount > 0) {
 }
 
 function checkFile(filePath: string): number {
+	const fileFolder = Path.dirname(filePath);
 	const text = FS.readFileSync(filePath, "utf-8");
 	const { program } = OXC.parseSync(filePath, text);
 	const dir = Path.dirname(filePath);
@@ -94,6 +128,11 @@ function checkFile(filePath: string): number {
 				const line = text.slice(0, src.start).split("\n").length;
 				const fixPath = `./${Path.relative(dir, current).replace(/\\/g, "/")}`;
 				const rel = Path.relative(rootDir, filePath);
+				lastViolation.current = {
+					importPath,
+					resolvedPath: Path.relative(rootDir, resolved),
+					fixPath: Path.relative(rootDir, current),
+				};
 				printViolation(rel, line);
 				printImport(Path.relative(dir, resolved), fixPath);
 				count++;

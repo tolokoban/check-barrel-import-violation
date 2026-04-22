@@ -1,6 +1,6 @@
 {
     "name": "check-barrel-import-violation",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "description": "Ensure that files inside a folder with a barrel are not imported outside this folder",
     "type": "module",
     "bin": {
@@ -27,7 +27,7 @@
         "picomatch": "^4.0.4"
     },
     "devDependencies": {
-        "@types/node": "^22.15.0",
+        "@types/node": "^22.19.17",
         "@types/picomatch": "^4.0.3",
         "typescript": "^5.9.3"
     }
