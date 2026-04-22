@@ -20,7 +20,9 @@ printTitle("Check for barrel import violations...");
 const tsconfigPath = process.argv[2];
 if (!tsconfigPath) {
 	console.error();
-	printError("Usage: check-barrel-import-violation <path-to-tsconfig.json>");
+	printError(
+		"Usage: check-barrel-import-violation <path-to-tsconfig.json> [files...]",
+	);
 	console.error();
 	process.exit(2);
 }
@@ -40,7 +42,11 @@ const aliases = buildAliases(tsconfig.compilerOptions?.paths ?? {}, baseUrl);
 const include: string[] = tsconfig.include ?? ["**/*"];
 const exclude: string[] = tsconfig.exclude ?? ["node_modules"];
 
-const sourceFiles = collectSourceFiles(rootDir, include, exclude);
+const extraFiles = process.argv.slice(3);
+const sourceFiles =
+	extraFiles.length > 0
+		? extraFiles.map((f) => Path.resolve(f))
+		: collectSourceFiles(rootDir, include, exclude);
 print("Analysing ", sourceFiles.length, " files");
 let errorCount = 0;
 
@@ -103,20 +109,14 @@ interface Alias {
 	targets: string[];
 }
 
-function buildAliases(
-	paths: Record<string, string[]>,
-	base: string,
-): Alias[] {
+function buildAliases(paths: Record<string, string[]>, base: string): Alias[] {
 	return Object.entries(paths).map(([key, targets]) => ({
 		prefix: key.replace(/\*$/, ""),
 		targets: targets.map((t) => Path.resolve(base, t.replace(/\*$/, ""))),
 	}));
 }
 
-function resolveAlias(
-	importPath: string,
-	aliases: Alias[],
-): string | null {
+function resolveAlias(importPath: string, aliases: Alias[]): string | null {
 	if (importPath.startsWith(".")) return importPath;
 
 	for (const { prefix, targets } of aliases) {
@@ -126,8 +126,8 @@ function resolveAlias(
 				const candidate = Path.join(target, rest);
 				if (
 					FS.existsSync(candidate) ||
-					FS.existsSync(candidate + ".ts") ||
-					FS.existsSync(candidate + ".tsx")
+					FS.existsSync(`${candidate}.ts`) ||
+					FS.existsSync(`${candidate}.tsx`)
 				)
 					return candidate;
 			}

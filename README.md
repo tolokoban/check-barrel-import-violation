@@ -14,6 +14,18 @@ Then run it against your project's `tsconfig.json`:
 npx check-barrel-import-violation tsconfig.json
 ```
 
+To check only specific files instead of the whole project:
+
+```bash
+npx check-barrel-import-violation tsconfig.json src/foo.ts src/bar.tsx
+```
+
+To check only uncommitted files:
+
+```bash
+npx check-barrel-import-violation tsconfig.json $(git diff --name-only --diff-filter=d HEAD)
+```
+
 You can also add it as a script in your `package.json`:
 
 ```json
